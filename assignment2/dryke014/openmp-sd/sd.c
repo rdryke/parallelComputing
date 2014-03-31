@@ -97,7 +97,7 @@ void ComputeNeighbors(params_t *params)
   i = 0;
   j = 0;
 #pragma omp for schedule(dynamic) nowait
-  for (i=0; i<mat->nrows; i+=2) {
+  for (i=0; i<mat->nrows; i+=4) {
 //   if (params->verbosity > 0)
 //      printf("Working on query %7d\n", i);
 
@@ -107,7 +107,7 @@ void ComputeNeighbors(params_t *params)
                  mat->rowind+mat->rowptr[i], 
                  mat->rowval+mat->rowptr[i], 
                  GK_CSR_COS, params->nnbrs, params->minsim, hits, 
-                 marker, cand);
+                 marker, cand, 1);
 
     /* write the results in the file */
 
@@ -125,7 +125,27 @@ nhits = gk_csr_GetSimilarRows(mat,
                  mat->rowind+mat->rowptr[i + 1], 
                  mat->rowval+mat->rowptr[i + 1], 
                  GK_CSR_COS, params->nnbrs, params->minsim, hits, 
-                 marker, cand);
+                 marker, cand, 0);
+
+    /* write the results in the file */
+
+    if (fpout) 
+    {
+#pragma omp critical
+{
+      for (j=0; j<nhits; j++) 
+	{
+
+        	fprintf(fpout, "%8d %8zd %.3f\n", i + 1, hits[j].val, hits[j].key);
+	}
+}
+    }
+nhits = gk_csr_GetSimilarRows(mat, 
+                 mat->rowptr[i+3]-mat->rowptr[i+2], 
+                 mat->rowind+mat->rowptr[i+2], 
+                 mat->rowval+mat->rowptr[i+2], 
+                 GK_CSR_COS, params->nnbrs, params->minsim, hits, 
+                 marker, cand, 1);
 
     /* write the results in the file */
 
@@ -135,10 +155,31 @@ nhits = gk_csr_GetSimilarRows(mat,
       for (j=0; j<nhits; j++) 
 	{
 
-        	fprintf(fpout, "%8d %8zd %.3f\n", i + 1, hits[j].val, hits[j].key);
+        	fprintf(fpout, "%8d %8zd %.3f\n", i + 2, hits[j].val, hits[j].key);
 	}
 }
-  }
+nhits = gk_csr_GetSimilarRows(mat, 
+                 mat->rowptr[i+4]-mat->rowptr[i+3], 
+                 mat->rowind+mat->rowptr[i + 3], 
+                 mat->rowval+mat->rowptr[i + 3], 
+                 GK_CSR_COS, params->nnbrs, params->minsim, hits, 
+                 marker, cand, 0);
+
+    /* write the results in the file */
+
+    if (fpout) 
+    {
+#pragma omp critical
+{
+      for (j=0; j<nhits; j++) 
+	{
+
+        	fprintf(fpout, "%8d %8zd %.3f\n", i + 3, hits[j].val, hits[j].key);
+	}
+}
+    }
+}
+
 }
 
 }
@@ -160,4 +201,3 @@ nhits = gk_csr_GetSimilarRows(mat,
 
   return;
 }
-
