@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
-#include <omp.h>
 
 
 FILE* file_open(char* filename) {
@@ -25,50 +24,28 @@ int key(int number, int pass, int bits, int keep) {
   return temp;
 }
 
-void countingSort(int a[], int n, int bits, int pass, int p)
+void countingSort(int a[], int n, int bits, int pass)
 {
 	int nbuckets = 1 << bits;
 	int *c = (int *) malloc(sizeof(int)*nbuckets);
-	int *c2 = (int *) malloc(sizeof(int)*nbuckets*p); 
-	int i, j, temp, threadnum, start, end, startc, endc, offset;
+	int i, temp;
 	int *b = (int *) malloc(sizeof(int)*n);
 	for (i = 0; i < nbuckets; i++)
 	{
 		c[i] = 0;
 	}
-	for (i = 0; i < nbuckets * p; i++)
-	{
-		c2[i] = 0;
-	}
-#pragma omp parallel num_threads(p) default(shared) private(i, temp, threadnum, start, end, startc, endc, offset)
-{
-	threadnum = omp_get_thread_num();
-	start = (n/p)*threadnum;
-	end = (n/p)*(threadnum + 1);
-	startc = nbuckets*threadnum;
-	endc = nbuckets*(threadnum + 1);
-	offset = startc;
-	for (i = start; i < end; i++)
+	for (i = 0; i < n; i++)
 	{
 		b[i] = a[i];
 		temp = key(a[i], pass, bits, nbuckets);
-		c2[temp + offset] += 1;
+		c[temp] += 1;
 	}
 
-	for (i = startc + 1; i < endc; i++)
+	for (i = 1; i < nbuckets; i++)
 	{
-		c2[i] += c2[i-1];
+		c[i] += c[i-1];
 	}
 	
-}
-
-	for (i = 0; i < nbuckets; i++)
-	{
-		for (j = 0; j < p; j++)
-		{
-			c[i] += c2[i + nbuckets * j];
-		}
-	}
 
 
 	for (i = n-1; i >= 0; i--)
@@ -84,14 +61,14 @@ void countingSort(int a[], int n, int bits, int pass, int p)
 
 }
 
-void radixSort(int a[], int n, int b, int p)
+void radixSort(int a[], int n, int b)
 {
 
 	int i;
 	for (i = 0; i < 32/b; i++)
 	{
 	
-		countingSort(a, n, b, i, p);
+		countingSort(a, n, b, i);
 
 	}
 
@@ -136,7 +113,7 @@ int * getData(char * filename, int n)
 int main(int argc, char* argv[])
 {
 
-	if (argc != 4)
+	if (argc != 3)
 	{
 		printf("error: invalid arguments\n");
 		exit(-1);
@@ -144,16 +121,13 @@ int main(int argc, char* argv[])
 	int n = numberOfLines(argv[1]);
 	int *a = getData(argv[1], n) ;
 	int b = atoi(argv[2]);
-	int p = atoi(argv[3]);
 	int  i;
 	double time_start, time_end;
         struct timeval tv;
         struct timezone tz;
         gettimeofday(&tv, &tz);
         time_start = (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-
-	radixSort(a,n,b,p);
-
+	radixSort(a,n,b);
 	gettimeofday(&tv, &tz);
         time_end = (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 /*	for (i = 0; i < n; i++)
