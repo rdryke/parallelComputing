@@ -126,6 +126,11 @@ int * resize(int * a, int n)
 	return (int *) realloc(a, sizeof(int) * n);
 }
 
+int key(int n, int prow)
+{
+	return n/prow;
+}
+
 int main(int argc, char** argv)
 {
 	int rank, p;
@@ -137,11 +142,13 @@ int main(int argc, char** argv)
 	float * pb;
 	gk_csr_t *mat;
 	gk_csr_t *mmat;
-	int * nEachData ;
 	int ndata;
 	int i, j;
 	int * nEachRow;
 	int * dspl;
+	int *nbneeded;
+	int **bneeded;
+	int *boffset;
 	int first;
 	int tempp;
 	int temppp;
@@ -200,6 +207,7 @@ int main(int argc, char** argv)
 	mat->rowind = (int *) malloc(sizeof(int) * ndata + 1);
 	mat->rowval = (float *) malloc(sizeof(float) * ndata);
 	MPI_Scatter(mmat->rowptr, prow, MPI_INT, mat->rowptr, prow, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Scatter(b, prow, MPI_FLOAT, pb, prow, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	first = mat->rowptr[0];
 	for (i = 0; i < prow; i++)
 	{
@@ -208,10 +216,10 @@ int main(int argc, char** argv)
 	mat->rowptr[prow] = ndata;
 	if (rank == 0)
 	{
-		printf("%d\n", rank);
+	//	printf("%d\n", rank);
 	for (i = 0; i < p; i++)
 	{
-		printf("%d\n", dspl[i]);
+	//	printf("%d\n", dspl[i]);
 	}
 
 //		printf("%d\n",dspl[0]);
@@ -219,34 +227,40 @@ int main(int argc, char** argv)
 //		printf("%d\n",dspl[2]);
 //		printf("%d\n",dspl[3]);
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
-	//MPI_Scatterv(mmat->rowind, nEachData, dspl, MPI_INT, mat->rowind, ndata, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(mmat->rowind, nEachRow, dspl, MPI_INT, mat->rowind, ndata, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Scatterv(mmat->rowval, nEachRow, dspl, MPI_FLOAT, mat->rowval, ndata, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+
+	gk_csr_CreateIndex(mat, GK_CSR_COL);
+
 	printf("%d\n", rank);
-//	MPI_Scatterv(mmat->rowval, nEachData, dspl, MPI_FLOAT, mat->rowval, ndata, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
+	nbneeded = (int *) calloc(p, sizeof(int));
+	boffset = (int *) calloc(p, sizeof(int));
+	bneeded = (int **) malloc(sizeof(int) * p * nb/16);
 
-//	gk_csr_CreateIndex(mat, GK_CSR_COL);
 
 
 
-/*
 	float * result = (float *) calloc(nb, sizeof(float));
-	for (i = 0; i < nb; i++)
+	for (i = 0; i < prow; i++)
 	{
+//		printf("%d from %d\n", mat->colptr[i], rank);
 		float output = 0.0;
 		int total = mat->colptr[i+1] - mat->colptr[i];
 		int * startind = mat->colind + mat->colptr[i];
 		float * startval = mat->colval + mat->colptr[i];
 		for (j = 0; j < total; j++)
 		{
-			result[startind[j]] += b[i] * startval[j];
-//			printf("%f : val %f\n", b[startind[j]] ,startval[j]);
+//			result[startind[j]] += pb[i] * startval[j];
+//			printf("col %d, row %d, val %f rank %d\n", i,  startind[j] ,startval[j], rank);
 		}
 	}
-*/
 
-/*
-	float * result = (float *) malloc(sizeof(float) * nb);
-	for (i = 0; i < nb; i++)
+
+
+//	float * result = (float *) malloc(sizeof(float) * nb);
+	for (i = 0; i < prow; i++)
 	{
 		float output = 0.0;
 		int total = mat->rowptr[i+1] - mat->rowptr[i];
@@ -254,20 +268,21 @@ int main(int argc, char** argv)
 		float * startval = mat->rowval + mat->rowptr[i];
 		for (j = 0; j < total; j++)
 		{
-			output += b[startind[j]] * startval[j];
-			printf("%f : val %f\n", b[startind[j]] ,startval[j]);
+//			output += b[startind[j]] * startval[j];
+//			printf("%f : val %f\n", b[startind[j]] ,startval[j]);
+//			printf("row %d, col %d, val %f rank %d\n", i,  startind[j] ,startval[j], rank);
 		}
-		result[i] = output;
+//		result[i] = output;
 	}
-*/
+
 
 /*
 	for (i = 0; i < nb; i++)
 	{
 		printf("%f\n", result[i]);
 	}
-*/
 
+*/
 /*
 	for (i = 0; i < nb; i++)
 	{
