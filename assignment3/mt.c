@@ -153,11 +153,15 @@ int main(int argc, char** argv)
 	int first;
 	int temp;
 	float* mresult;
+	char * s;
+	params_t params;
 	MPI_Init(&argc, &argv);
    	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
 	if (rank == 0)
 	{
+		gk_clearwctimer(params.timer_global);
+		gk_clearwctimer(params.timer_1);
 		if (argc != 3)
 		{
 			printf("error: invalid arguments\n");
@@ -176,7 +180,6 @@ int main(int argc, char** argv)
 		mresult = (float *) malloc (sizeof(float) * nb);
 		int start, end;
 		prow = nb/p;
-//		printf("%d\n",nb);
 		if (prow * p != nb)
 		{
 			printf("ERROR: rows do not divide evenly into processors\n");
@@ -196,6 +199,10 @@ int main(int argc, char** argv)
 			dspl[i] = mmat->rowptr[start];
 			nEachRow[i] = mmat->rowptr[end]-mmat->rowptr[start];
 		}
+		s = (char *) malloc(sizeof(char) * 50);
+		sprintf(s, "o%d.vec", nb);
+		FILE * ftemp2 = fopen(s, "w");
+		fclose(ftemp2);
 
 	}
 	MPI_Bcast(&nb, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -206,7 +213,7 @@ int main(int argc, char** argv)
 	mat->ncols = nb;
 	mat->rowptr = (int *) malloc(sizeof(int) * prow + 1);
 	pb = (float *) malloc(sizeof(float) * prow);
-	mat->rowind = (int *) malloc(sizeof(int) * ndata + 1);
+	mat->rowind = (int *) malloc(sizeof(int) * ndata);
 	mat->rowval = (float *) malloc(sizeof(float) * ndata);
 	MPI_Scatter(mmat->rowptr, prow, MPI_INT, mat->rowptr, prow, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Scatter(b, prow, MPI_FLOAT, pb, prow, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -216,22 +223,14 @@ int main(int argc, char** argv)
 		mat->rowptr[i] = mat->rowptr[i] -  first;
 	}
 	mat->rowptr[prow] = ndata;
-	if (rank == 0)
-	{
-	//	printf("%d\n", rank);
-	for (i = 0; i < p; i++)
-	{
-	//	printf("%d\n", dspl[i]);
-	}
 
-//		printf("%d\n",dspl[0]);
-//		printf("%d\n",dspl[1]);
-//		printf("%d\n",dspl[2]);
-//		printf("%d\n",dspl[3]);
-	}
 	MPI_Scatterv(mmat->rowind, nEachRow, dspl, MPI_INT, mat->rowind, ndata, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Scatterv(mmat->rowval, nEachRow, dspl, MPI_FLOAT, mat->rowval, ndata, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+	if (rank == 0)
+	{
+		gk_startwctimer(params.timer_global);
+	}
 
 	gk_csr_CreateIndex(mat, GK_CSR_COL);
 
@@ -246,7 +245,6 @@ int main(int argc, char** argv)
 			tneeded++;
 		}
 	}
-//printf("tneeded = %d, from %d\n",tneeded, rank);
 	bneeded = (int *) malloc(sizeof(int) * tneeded);
 	cptrCum = (int *) malloc(sizeof(int) * tneeded + 1);
 	count = 0;
@@ -280,8 +278,6 @@ int main(int argc, char** argv)
 	toSendBack = (float *) malloc(sizeof(float) * tsend);
 	toRec = (float *) malloc(sizeof(float) * tneeded);
 
-
-
 	for (i = 0; i < p; i++)
 	{
 		MPI_Scatterv(bneeded, nbneeded, nbneededCum, MPI_INT, toSend + nbrecCum[i], nbrec[i], MPI_INT, i, MPI_COMM_WORLD);
@@ -294,30 +290,21 @@ int main(int argc, char** argv)
 		toSendBack[i] = pb[toSend[i] - rowOffset];
 	}
 
-
-
 	for (i = 0; i < p; i++)
 	{
 		MPI_Scatterv(toSendBack, nbrec, nbrecCum, MPI_FLOAT, toRec + nbneededCum[i], nbneeded[i], MPI_FLOAT, i, MPI_COMM_WORLD);
 	}
-	for (i = 0; i < tneeded + 1; i++)
+
+	if (rank == 0)
 	{
-//		printf("%d, from %d\n", cptrCum[i], rank);
+		gk_startwctimer(params.timer_1);
 	}
-//printf("nb = %d, p = %d, from %d\n",nb, p, rank);
-MPI_Barrier(MPI_COMM_WORLD);
-	count = 0;
+
 	float * result = (float *) malloc(nb/p * sizeof(float));
-	for (i = 0; i < nb/p; i++)
-	{
-//		result[i] = 0.0;
-	}
 	for (i = 0; i < tneeded; i++)
 	{
-//		printf("%d from %d\n", mat->colptr[i], rank);
 		int total = cptrCum[i+1] - cptrCum[i];
 		float btemp = toRec[i];
-//		printf("%f from %d\n", btemp, rank);
 		int offset = cptrCum[i];
 		for (j = 0; j < total; j++)
 		{
@@ -325,73 +312,35 @@ MPI_Barrier(MPI_COMM_WORLD);
 			float valtemp = mat->colval[j + offset];
 			printf("");
 			result[rowtemp] += btemp * valtemp;
-//			printf("col %d, row %d, val %f rank %d\n", i,  temp, mat->colval[j + offset], rank);
 		}
 	}
-
-
-
-//	float * result = (float *) malloc(sizeof(float) * nb);
-if (rank == 0)
-{
-	for (i = 0; i < ndata; i++)
+	if (rank == 0)
 	{
-//		printf("col %d, val %f rank %d\n", mat->colind[i] ,mat->colval[i], rank);
+		gk_stopwctimer(params.timer_global);
+		gk_stopwctimer(params.timer_1);
 	}
-	for (i = 0; i <= nb; i++)
-	{
-//		printf("%d rank %d\n", mat->colptr[i], rank);
 
-	//	float output = 0.0;
-	//	int total = mat->rowptr[i+1] - mat->rowptr[i];
-	//	int * startind = mat->rowind + mat->rowptr[i];
-	//	float * startval = mat->rowval + mat->rowptr[i];
-	//	for (j = 0; j < total; j++)
-	//	{
-//			output += b[startind[j]] * startval[j];
-//			printf("%f : val %f\n", b[startind[j]] ,startval[j]);
-//			printf("row %d, col %d, val %f rank %d\n", i,  startind[j] ,startval[j], rank);
-	//	}
-//		result[i] = output;
-	}
-}
-//printf("%d\n", nb/p);
 	MPI_Gather(result, nb/p, MPI_FLOAT, mresult, nb/p, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
 	if (rank == 0)
 	{
+		int fp = open(s, O_WRONLY | O_APPEND);
+		int sout = dup(1);
+		fflush(stdout);
+        	close(1);
+        	dup(fp);
+		printf("Total Time Taken: %.4lf sec; Time Taken (Steps 5&6) : %.4lf sec\n", gk_getwctimer(params.timer_global), gk_getwctimer(params.timer_1));
 		for (i = 0; i < nb; i++)
 		{
 			printf("%f\n", mresult[i]);
 		}
+		fflush(stdout);
+        	close(fp);
+		dup2(sout, 1);
+				printf("Total Time Taken: %.4lf sec; Time Taken (Steps 5&6) : %.4lf sec\n number processors = %d\n", gk_getwctimer(params.timer_global), gk_getwctimer(params.timer_1), p);
 	}
 
-
-/*
-	for (i = 0; i < nb; i++)
-	{
-		int total = mat->rowptr[i+1] - mat->rowptr[i];
-		int * startind = mat->rowind + mat->rowptr[i];
-		float * startval = mat->rowval + mat->rowptr[i];
-		for (j = 0; j < total; j++)
-		{
-			printf("row %d col %d : val %f\n",i, startind[j] ,startval[j]);
-		}
-	}
-	printf("cols\n\n");
-	for (i = 0; i < nb; i++)
-	{
-		int total = mat->colptr[i+1] - mat->colptr[i];
-		int * startind = mat->colind + mat->colptr[i];
-		float * startval = mat->colval + mat->colptr[i];
-		for (j = 0; j < total; j++)
-		{
-			printf("col %d row %d : val %f\n",i, startind[j] ,startval[j]);
-		}
-	}
-*/
 	MPI_Finalize();
-return 1;
-
+	return 1;
     }
 
