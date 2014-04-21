@@ -152,6 +152,7 @@ int main(int argc, char** argv)
 	int rowOffset;
 	int first;
 	int temp;
+	float* mresult;
 	MPI_Init(&argc, &argv);
    	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &p);
@@ -172,7 +173,7 @@ int main(int argc, char** argv)
 		mmat->rowptr = (int *) calloc(nb + 1, sizeof(int));
 		mmat->rowval = (float *) malloc(sizeof(float) * n);
 		mmat->rowind = (int *) malloc(sizeof(int) * n);
-
+		mresult = (float *) malloc (sizeof(float) * nb);
 		int start, end;
 		prow = nb/p;
 //		printf("%d\n",nb);
@@ -354,13 +355,15 @@ if (rank == 0)
 //		result[i] = output;
 	}
 }
+//printf("%d\n", nb/p);
+	MPI_Gather(result, nb/p, MPI_FLOAT, mresult, nb/p, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-
-
-
-	for (i = 0; i < nb/p; i++)
+	if (rank == 0)
 	{
-		printf("%f\n", result[i]);
+		for (i = 0; i < nb; i++)
+		{
+			printf("%f\n", mresult[i]);
+		}
 	}
 
 
