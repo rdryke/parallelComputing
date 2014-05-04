@@ -64,7 +64,7 @@ void ComputeNeighbors(params_t *params)
   int32_t *marker;
   gk_fkv_t *hits, *cand;
   FILE *fpout;
-
+printf("threads = %d\n", NTHREADS);
   printf("Reading data for %s...\n", params->infstem);
 
   mat = gk_csr_Read(params->infstem, GK_CSR_FMT_CSR, 1, 0);

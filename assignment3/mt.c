@@ -206,6 +206,7 @@ int main(int argc, char** argv)
 
 	}
 	MPI_Bcast(&nb, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	ndata = 0;
 	MPI_Scatter(nEachRow, 1, MPI_INT, &ndata, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	prow = nb/p;
 	mat = (gk_csr_t *) malloc(sizeof(gk_csr_t));
@@ -244,6 +245,10 @@ int main(int argc, char** argv)
 			nbneeded[spot]++;
 			tneeded++;
 		}
+		if (mat->colptr[i + 1] == ndata && mat->colptr[i] == ndata)
+		{
+			break;
+		}
 	}
 	bneeded = (int *) malloc(sizeof(int) * tneeded);
 	cptrCum = (int *) malloc(sizeof(int) * tneeded + 1);
@@ -255,6 +260,10 @@ int main(int argc, char** argv)
 			bneeded[count] = i;
 			cptrCum[count] = mat->colptr[i];
 			count++;
+		}
+		if (mat->colptr[i + 1] == ndata && mat->colptr[i] == ndata)
+		{
+			break;
 		}
 	}
 	cptrCum[tneeded] = mat->colptr[nb];
@@ -333,14 +342,14 @@ int main(int argc, char** argv)
 		for (i = 0; i < nb; i++)
 		{
 			printf("%f\n", mresult[i]);
+			fflush(stdout);
 		}
 		fflush(stdout);
         	close(fp);
 		dup2(sout, 1);
-				printf("Total Time Taken: %.4lf sec; Time Taken (Steps 5&6) : %.4lf sec\n number processors = %d\n", gk_getwctimer(params.timer_global), gk_getwctimer(params.timer_1), p);
 	}
 
 	MPI_Finalize();
-	return 1;
+	return 0;
     }
 

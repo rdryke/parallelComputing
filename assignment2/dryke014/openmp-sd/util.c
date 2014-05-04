@@ -639,7 +639,7 @@ void gk_csr_Normalize(gk_csr_t *mat, int what, int norm)
 	  sum=1.0/sum; 
         for (j=ptr[i]; j<ptr[i+1]; j++)
           val[j] *= sum;
-	
+
       }
     }
   }
@@ -1077,4 +1077,3 @@ else
 
   return nsim;
 }
-
