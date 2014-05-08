@@ -1,1 +1,1 @@
-execlp("../bin/diff", "../bin/diff", "TestFile.cpp", "CorrectFile.cpp", (char *)0);
+execlp("diff", "diff", "TestFile.cpp", "CorrectFile.cpp", (char *)0);
